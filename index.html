@@ -1422,9 +1422,8 @@ function setTxType(type, btn) {
    ADD TRANSACTION
 ===================================================== */
 function parseAmount(str) {
-  // Accept both comma and dot as decimal separator
-  return parseFloat(String(str).replace(/\./g, '').replace(',', '.')) ||
-         parseFloat(String(str).replace(',', '.'));
+  // Accept both comma and dot as decimal separator (e.g. "1,50" or "1.50")
+  return parseFloat(String(str).trim().replace(',', '.'));
 }
 function addTransaction() {
   const amount = parseAmount(document.getElementById('txAmount').value);
