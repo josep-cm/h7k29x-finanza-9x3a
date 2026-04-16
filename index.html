@@ -1421,8 +1421,13 @@ function setTxType(type, btn) {
 /* =====================================================
    ADD TRANSACTION
 ===================================================== */
+function parseAmount(str) {
+  // Accept both comma and dot as decimal separator
+  return parseFloat(String(str).replace(/\./g, '').replace(',', '.')) ||
+         parseFloat(String(str).replace(',', '.'));
+}
 function addTransaction() {
-  const amount = parseFloat(document.getElementById('txAmount').value);
+  const amount = parseAmount(document.getElementById('txAmount').value);
   const desc   = document.getElementById('txDesc').value.trim();
   const cat    = document.getElementById('txCategory').value;
   const accId  = document.getElementById('txAccount').value;
@@ -1786,7 +1791,7 @@ function openAccountDetail(accId) {
 }
 
 function updateAccountBalance(accId) {
-  const val = parseFloat(document.getElementById('editBalInput').value);
+  const val = parseAmount(document.getElementById('editBalInput').value);
   if (isNaN(val)) { showToast('Valor inválido', 'error'); return; }
   const acc = state.accounts.find(a => a.id === accId);
   if (!acc) return;
@@ -1798,7 +1803,7 @@ function updateAccountBalance(accId) {
   showToast(`Saldo de ${acc.name} actualizado`, 'success');
 }
 function updateAccountInterest(accId) {
-  const val  = parseFloat(document.getElementById('editIntInput').value);
+  const val  = parseAmount(document.getElementById('editIntInput').value);
   const mode = document.getElementById('editIntMode').value;
   if (isNaN(val) || val < 0) { showToast('Interés inválido', 'error'); return; }
   const acc = state.accounts.find(a => a.id === accId);
@@ -1925,7 +1930,7 @@ function saveTxEdit(id) {
   const t = state.transactions.find(tx => tx.id === id);
   if (!t) return;
 
-  const newAmount = parseFloat(document.getElementById('editAmount').value);
+  const newAmount = parseAmount(document.getElementById('editAmount').value);
   const newDesc   = document.getElementById('editDesc').value.trim();
   const newDate   = document.getElementById('editDate').value;
   const newCat    = document.getElementById('editCategory') ? document.getElementById('editCategory').value : t.category;
