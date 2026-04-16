@@ -1040,7 +1040,7 @@ canvas { max-width: 100%; }
 
     <div class="input-group">
       <label class="input-label" for="txAmount">Cantidad (€)</label>
-      <input class="input" id="txAmount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal" autocomplete="off">
+      <input class="input" id="txAmount" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>
 
     <div class="input-group">
@@ -1799,14 +1799,14 @@ function openAccountDetail(accId) {
     <!-- Edit balance -->
     <div class="text-xs text-muted mb-8">Editar saldo</div>
     <div class="inline-edit">
-      <input class="input" id="editBalInput" type="number" step="0.01" value="${acc.balance.toFixed(2)}" inputmode="decimal" aria-label="Nuevo saldo">
+      <input class="input" id="editBalInput" type="text" inputmode="decimal" value="${acc.balance.toFixed(2)}" autocorrect="off" spellcheck="false" aria-label="Nuevo saldo">
       <button class="btn btn-primary btn-sm" onclick="updateAccountBalance('${acc.id}')">Guardar</button>
     </div>
 
     ${isSavings ? `
     <div class="text-xs text-muted mt-16 mb-8">Configurar interés</div>
     <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <input class="input" id="editIntInput" type="number" step="0.01" value="${acc.interest}" inputmode="decimal" aria-label="Interés TAE" placeholder="TAE %" style="flex:1;">
+      <input class="input" id="editIntInput" type="text" inputmode="decimal" value="${acc.interest}" autocorrect="off" spellcheck="false" aria-label="Interés TAE" placeholder="TAE %" style="flex:1;">
       <select class="input" id="editIntMode" style="flex:1;">
         <option value="daily"   ${(acc.interestMode||'monthly')==='daily'   ? 'selected':''}>📅 Diario</option>
         <option value="monthly" ${(acc.interestMode||'monthly')==='monthly' ? 'selected':''}>🗓️ Mensual</option>
@@ -1935,7 +1935,7 @@ function openTxDetail(id) {
     </div>
     <div class="input-group">
       <label class="input-label">Cantidad (€)</label>
-      <input class="input" id="editAmount" type="number" step="0.01" min="0" value="${t.amount}" inputmode="decimal">
+      <input class="input" id="editAmount" type="text" inputmode="decimal" value="${t.amount}" autocorrect="off" spellcheck="false">
     </div>
     ${!isTransfer ? `
     <div class="input-group">
