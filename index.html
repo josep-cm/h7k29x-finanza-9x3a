@@ -955,8 +955,11 @@ canvas { max-width: 100%; }
 <div id="page-accounts" class="page">
   <div class="page-header">
     <div class="page-title">Cuentas</div>
-    <div style="font-size:13px;color:var(--text-muted);">
-      Total: <span class="font-bold text-primary" id="accountsTotal">€0</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:13px;color:var(--text-muted);">Total: <span class="font-bold text-primary" id="accountsTotal">€0</span></div>
+      <button class="dash-add-btn" onclick="openModal('addAccountModal')" aria-label="Añadir cuenta">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
     </div>
   </div>
 
@@ -1109,6 +1112,69 @@ canvas { max-width: 100%; }
 </div>
 
 <!-- ============================================================
+     MODAL: ADD ACCOUNT
+============================================================ -->
+<div class="modal-overlay" id="addAccountModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nueva cuenta</div>
+
+    <div class="input-group">
+      <label class="input-label">Nombre del banco / cuenta</label>
+      <input class="input" id="newAccName" type="text" placeholder="Ej: BBVA Principal" autocorrect="off">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Tipo</label>
+      <select class="input" id="newAccType" onchange="toggleNewAccInterest()">
+        <option value="checking">Cuenta corriente</option>
+        <option value="savings">Cuenta remunerada</option>
+        <option value="cash">Efectivo</option>
+        <option value="invest">Inversiones</option>
+        <option value="crypto">Cripto</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Color</label>
+      <select class="input" id="newAccColor">
+        <option value="acc-ing">Naranja (ING)</option>
+        <option value="acc-revolut">Violeta (Revolut)</option>
+        <option value="acc-rev-rem">Azul</option>
+        <option value="acc-ing-rem">Verde</option>
+        <option value="acc-cash">Dorado</option>
+        <option value="acc-invest">Azul cielo</option>
+        <option value="acc-crypto">Púrpura</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Saldo inicial (€)</label>
+      <input class="input" id="newAccBalance" type="text" inputmode="decimal" placeholder="0,00" autocorrect="off" spellcheck="false">
+    </div>
+
+    <div id="newAccInterestSection" style="display:none;">
+      <div class="input-group">
+        <label class="input-label">Interés TAE (%)</label>
+        <input class="input" id="newAccInterest" type="text" inputmode="decimal" placeholder="Ej: 3.5" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Acreditación</label>
+        <select class="input" id="newAccIntMode">
+          <option value="monthly">🗓️ Mensual (una transacción al mes)</option>
+          <option value="daily">📅 Diario (silencioso, acumulado)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('addAccountModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addAccount()">Añadir cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      MODAL: ACCOUNT DETAIL / EDIT
 ============================================================ -->
 <div class="modal-overlay" id="accountDetailModal" role="dialog" aria-modal="true">
@@ -1176,11 +1242,12 @@ function loadState() {
       state.scheduled    = saved.scheduled    || [];
       state.simulating   = false;
       state.simDay       = null;
-      // Merge accounts (keep saved balances + interest settings)
-      state.accounts = ACCOUNTS_DEF.map(def => {
-        const saved_acc = (saved.accounts || []).find(a => a.id === def.id);
-        return saved_acc ? { ...def, ...saved_acc } : { ...def };
-      });
+      // If saved has accounts, use them directly (fully dynamic)
+      if (saved.accounts && saved.accounts.length > 0) {
+        state.accounts = saved.accounts;
+      } else {
+        initAccounts();
+      }
     } catch(e) {
       initAccounts();
     }
@@ -1824,6 +1891,7 @@ function openAccountDetail(accId) {
 
     <div class="modal-actions mt-12">
       <button class="btn btn-secondary" onclick="closeModal('accountDetailModal')">Cerrar</button>
+      <button class="btn btn-danger" onclick="deleteAccount('${acc.id}')">Eliminar cuenta</button>
     </div>`;
   openModal('accountDetailModal');
 }
@@ -2130,6 +2198,64 @@ function initBackground() {
 /* =====================================================
    INIT
 ===================================================== */
+/* =====================================================
+   ADD / DELETE ACCOUNT
+===================================================== */
+function toggleNewAccInterest() {
+  const type = document.getElementById('newAccType').value;
+  document.getElementById('newAccInterestSection').style.display = type === 'savings' ? 'block' : 'none';
+}
+
+function addAccount() {
+  const name    = document.getElementById('newAccName').value.trim();
+  const type    = document.getElementById('newAccType').value;
+  const color   = document.getElementById('newAccColor').value;
+  const balance = parseAmount(document.getElementById('newAccBalance').value) || 0;
+
+  if (!name) { showToast('Introduce un nombre', 'error'); return; }
+
+  const iconMap = { checking:'bank', savings:'savings', cash:'cash', invest:'chart', crypto:'crypto' };
+  const newAcc = {
+    id:      genId(),
+    name,
+    type,
+    color,
+    icon:    iconMap[type] || 'bank',
+    balance,
+    interest: 0,
+  };
+
+  if (type === 'savings') {
+    newAcc.interest     = parseAmount(document.getElementById('newAccInterest').value) || 0;
+    newAcc.interestMode = document.getElementById('newAccIntMode').value;
+  }
+
+  state.accounts.push(newAcc);
+  saveState();
+  closeModal('addAccountModal');
+  // Reset form
+  document.getElementById('newAccName').value    = '';
+  document.getElementById('newAccBalance').value = '';
+  document.getElementById('newAccInterest') && (document.getElementById('newAccInterest').value = '');
+  document.getElementById('newAccInterestSection').style.display = 'none';
+  document.getElementById('newAccType').value = 'checking';
+  renderAccounts();
+  renderDashboard();
+  showToast(`Cuenta "${name}" añadida`, 'success');
+}
+
+function deleteAccount(accId) {
+  const acc = state.accounts.find(a => a.id === accId);
+  if (!acc) return;
+  if (!confirm(`¿Eliminar la cuenta "${acc.name}"? Los movimientos asociados se conservarán.`)) return;
+  state.accounts = state.accounts.filter(a => a.id !== accId);
+  saveState();
+  closeModal('accountDetailModal');
+  renderAccounts();
+  renderDashboard();
+  showToast(`Cuenta "${acc.name}" eliminada`, 'info');
+}
+
 /* =====================================================
    EXPORT / IMPORT
 ===================================================== */
