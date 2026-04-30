@@ -463,6 +463,8 @@ select.input { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .balance-label { font-size: 12px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .balance-amount { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0; }
 .balance-subtext { font-size: 13px; color: var(--text-secondary); }
+#dashMonthPrev:hover, #dashMonthNext:hover { background: rgba(255,255,255,0.18); }
+#dashMonthNext:disabled { opacity: 0.3; cursor: default; }
 
 /* =========================================
    MINI STAT CARDS
@@ -904,13 +906,25 @@ canvas { max-width: 100%; }
       <div class="balance-label">BALANCE TOTAL</div>
       <div class="balance-amount glow-blue" id="heroAmount">€0,00</div>
       <div class="balance-subtext" id="heroSub">Actualizado ahora</div>
-      <div style="margin-top:18px; display:flex; gap:24px;">
+
+      <!-- Month navigation -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:18px;margin-bottom:4px;">
+        <button id="dashMonthPrev" onclick="dashMonthPrev()" aria-label="Mes anterior" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-primary);padding:0;flex-shrink:0;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span id="dashMonthLabel" style="font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--text-secondary);text-transform:uppercase;min-width:110px;text-align:center;"></span>
+        <button id="dashMonthNext" onclick="dashMonthNext()" aria-label="Mes siguiente" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-primary);padding:0;flex-shrink:0;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <div style="margin-top:10px; display:flex; gap:24px;">
         <div>
-          <div class="balance-label">INGRESOS MES</div>
+          <div class="balance-label">INGRESOS</div>
           <div style="font-size:18px;font-weight:600;color:var(--accent-green);margin-top:4px;" id="heroIncome">€0</div>
         </div>
         <div>
-          <div class="balance-label">GASTOS MES</div>
+          <div class="balance-label">GASTOS</div>
           <div style="font-size:18px;font-weight:600;color:var(--accent-red);margin-top:4px;" id="heroExpense">€0</div>
         </div>
         <div>
@@ -928,7 +942,7 @@ canvas { max-width: 100%; }
     </div>
 
     <!-- Donut: gastos del mes -->
-    <div class="section-title">Gastos del mes por categoría</div>
+    <div class="section-title" id="dashExpensesTitle">Gastos del mes por categoría</div>
     <div class="card-flat mb-16" style="padding:20px 16px;">
       <canvas id="dashDonutExpenses" style="display:block;width:100%;"></canvas>
       <div id="dashDonutExpensesLegend" style="display:flex;flex-direction:column;gap:7px;margin-top:18px;"></div>
@@ -936,7 +950,7 @@ canvas { max-width: 100%; }
 
     <!-- Recent Transactions -->
     <div class="flex items-center justify-between" style="margin-bottom:12px;">
-      <div class="section-title" style="margin:0;">Últimas operaciones</div>
+      <div class="section-title" style="margin:0;" id="dashRecentTitle">Últimas operaciones</div>
       <button class="btn btn-sm btn-secondary" onclick="navigate('movements')" style="font-size:12px;padding:6px 12px;min-height:32px;">Ver todo</button>
     </div>
 
@@ -1215,6 +1229,8 @@ let state = {
 
 let currentTxType = 'income';
 let currentMovFilter = 'all';
+let dashViewMonth = today().getMonth();
+let dashViewYear  = today().getFullYear();
 
 const TX_CATEGORIES = [
   '💰 Sueldo','💻 Freelance','📈 Inversión','🏠 Alquiler',
@@ -1436,9 +1452,9 @@ function processInterest() {
 function totalBalance() {
   return state.accounts.reduce((s, a) => s + (a.balance || 0), 0);
 }
-function realIncomeThisMonth() {
-  const month = today().getMonth();
-  const year  = today().getFullYear();
+function realIncomeThisMonth(month, year) {
+  if (month === undefined) month = today().getMonth();
+  if (year  === undefined) year  = today().getFullYear();
   return state.transactions
     .filter(t => {
       if (t.type !== 'income') return false;
@@ -1447,9 +1463,9 @@ function realIncomeThisMonth() {
     })
     .reduce((s, t) => s + t.amount, 0);
 }
-function realExpenseThisMonth() {
-  const month = today().getMonth();
-  const year  = today().getFullYear();
+function realExpenseThisMonth(month, year) {
+  if (month === undefined) month = today().getMonth();
+  if (year  === undefined) year  = today().getFullYear();
   return state.transactions
     .filter(t => {
       if (t.type !== 'expense') return false;
@@ -1613,13 +1629,27 @@ function updateGreeting() {
 function renderDashboard() {
   updateGreeting();
   const bal = totalBalance();
-  const inc = realIncomeThisMonth();
-  const exp = realExpenseThisMonth();
+  const inc = realIncomeThisMonth(dashViewMonth, dashViewYear);
+  const exp = realExpenseThisMonth(dashViewMonth, dashViewYear);
   const sav = inc - exp;
+
+  // Month nav label
+  const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const isCurrentMonth = dashViewMonth === today().getMonth() && dashViewYear === today().getFullYear();
+  const monthLabel = document.getElementById('dashMonthLabel');
+  if (monthLabel) monthLabel.textContent = `${MONTHS_ES[dashViewMonth]} ${dashViewYear}`;
+  const nextBtn = document.getElementById('dashMonthNext');
+  if (nextBtn) nextBtn.disabled = isCurrentMonth;
+  const expTitle = document.getElementById('dashExpensesTitle');
+  if (expTitle) expTitle.textContent = `Gastos de ${MONTHS_ES[dashViewMonth]} por categoría`;
+  const recTitle = document.getElementById('dashRecentTitle');
+  if (recTitle) recTitle.textContent = isCurrentMonth ? 'Últimas operaciones' : `Operaciones de ${MONTHS_ES[dashViewMonth]}`;
 
   document.getElementById('heroAmount').textContent = formatMoney(bal);
   document.getElementById('heroAmount').className   = 'balance-amount ' + (bal >= 0 ? 'glow-blue' : 'text-red');
-  document.getElementById('heroSub').textContent    = `Actualizado ${today().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}`;
+  document.getElementById('heroSub').textContent    = isCurrentMonth
+    ? `Actualizado ${today().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}`
+    : `Vista de ${MONTHS_ES[dashViewMonth]} ${dashViewYear}`;
   document.getElementById('heroIncome').textContent  = formatMoney(inc);
   document.getElementById('heroExpense').textContent = formatMoney(exp);
   document.getElementById('heroSavings').textContent = formatMoney(sav);
@@ -1632,7 +1662,7 @@ function renderDashboard() {
       state.accounts.filter(a => a.balance > 0).map(a => ({ label: a.name, value: a.balance })).sort((a,b) => b.value - a.value),
       'Sin saldo en cuentas'
     );
-    const month = today().getMonth(), year = today().getFullYear();
+    const month = dashViewMonth, year = dashViewYear;
     const expCats = {};
     state.transactions.forEach(t => {
       if (t.type !== 'expense') return;
@@ -1648,8 +1678,13 @@ function renderDashboard() {
     );
   });
 
-  // Recent transactions (last 5)
-  const sorted = [...state.transactions].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 5);
+  // Recent transactions (last 5 of viewed month)
+  const sorted = [...state.transactions]
+    .filter(t => {
+      const d = new Date(t.date + 'T00:00:00');
+      return d.getMonth() === dashViewMonth && d.getFullYear() === dashViewYear;
+    })
+    .sort((a,b) => b.date.localeCompare(a.date)).slice(0, 5);
   const el = document.getElementById('recentTransactions');
   if (!sorted.length) {
     el.innerHTML = `<div class="empty-state">
@@ -1659,6 +1694,20 @@ function renderDashboard() {
     return;
   }
   el.innerHTML = sorted.map(t => txItemHTML(t)).join('');
+}
+
+function dashMonthPrev() {
+  if (dashViewMonth === 0) { dashViewMonth = 11; dashViewYear--; }
+  else dashViewMonth--;
+  renderDashboard();
+}
+function dashMonthNext() {
+  const nm = dashViewMonth === 11 ? 0 : dashViewMonth + 1;
+  const ny = dashViewMonth === 11 ? dashViewYear + 1 : dashViewYear;
+  if (ny > today().getFullYear() || (ny === today().getFullYear() && nm > today().getMonth())) return;
+  dashViewMonth = nm;
+  dashViewYear  = ny;
+  renderDashboard();
 }
 
 /* =====================================================
